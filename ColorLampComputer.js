@@ -13,17 +13,44 @@ function getColorFromValue(value) {
 }
 
 function calculateWeight(beta) {
-    let normalizedBeta = Math.abs(beta);  // Ensure beta is non-negative
-    let weight = normalizedBeta / 90;  // Normalize to a scale of 0-1 over 90 degrees
+    let cappedBeta = Math.min(Math.max(beta, -90), 90); // Cap beta angle between -90 and 90 degrees
+    let normalizedBeta = (cappedBeta + 90) / 180; // Normalize beta to range from 0 to 1
+    let weight = normalizedBeta; // Weight increases as the device points down
     console.log(`Calculated weight for beta ${beta}: ${weight}`);
     return weight;
 }
 
+
+var colorWeights = {
+    red: [],
+    green: [],
+    blue: []
+};
+
+function updateColorWeights(color, weight) {
+    colorWeights[color].push(weight); // Store the weight for the corresponding color
+}
+
+function calculateAverageWeight(color) {
+    let weights = colorWeights[color];
+    if (weights.length === 0) return 0; // Return 0 if there are no weights yet
+    let sum = weights.reduce((acc, val) => acc + val, 0); // Calculate the sum of weights
+    return sum / weights.length; // Calculate the average weight
+}
+
 function updateColorCount(color, weight, isAdding = true) {
-    const adjustment = isAdding ? weight : -weight;
-    colorCount[color] += adjustment; // Use direct property access
+    if (isAdding) {
+        colorWeights[color].push(weight); // Simply add the new weight when a new device is registered or changes color.
+    } else {
+        let index = colorWeights[color].indexOf(weight);
+        if (index > -1) {
+            colorWeights[color].splice(index, 1); // Remove the specific weight to negate its influence.
+        }
+    }
+    let averageWeight = calculateAverageWeight(color); // Recalculate the average
+    colorCount[color] = averageWeight; // Update the color count with the new average
     
-    console.log(`Updated color counts: Red - ${colorCount.red}, Green - ${colorCount.green}, Blue - ${colorCount.blue}`);
+    console.log(`Updated color counts: Red - ${colorCount.red.toFixed(2)}, Green - ${colorCount.green.toFixed(2)}, Blue - ${colorCount.blue.toFixed(2)}`);
 }
 
 let disconnectTimeout = 6000; // Timeout of 6 seconds
@@ -33,6 +60,7 @@ function onMessage(message) {
     let deviceId = message.from;
     let newColorValue = getColorFromValue(message.colorValue);
     let betaValue = message.beta;
+    let newWeight = calculateWeight(betaValue);
 
     if (!devices[deviceId]) {
         console.log(`Adding new device: ${deviceId}`);
@@ -41,7 +69,7 @@ function onMessage(message) {
             beta: betaValue,
             timer: setTimeout(() => removeDevice(deviceId), disconnectTimeout)
         };
-        updateColorCount(newColorValue, calculateWeight(betaValue));
+        updateColorCount(newColorValue, newWeight);
     } else {
         clearTimeout(devices[deviceId].timer);
         devices[deviceId].timer = setTimeout(() => removeDevice(deviceId), disconnectTimeout);
@@ -51,14 +79,11 @@ function onMessage(message) {
 
         if (currentColorValue !== newColorValue) {
             console.log(`Device ${deviceId} changed color vote from ${currentColorValue} to ${newColorValue}`);
-            // Remove the influence of the old color and weight
-            updateColorCount(currentColorValue, currentWeight, false);
-            // Add the new color and weight
-            updateColorCount(newColorValue, calculateWeight(betaValue));
+            updateColorCount(currentColorValue, currentWeight, false); // Remove the influence of the old color and weight
+            updateColorCount(newColorValue, newWeight); // Add the new color and weight
         } else if (devices[deviceId].beta !== betaValue) {
-            // Update the weight if only beta value changes but not the color
             updateColorCount(currentColorValue, currentWeight, false); // remove old weight
-            updateColorCount(currentColorValue, calculateWeight(betaValue)); // add new weight
+            updateColorCount(currentColorValue, newWeight); // add new weight
         }
         
         // Update the stored device info
