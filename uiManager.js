@@ -12,8 +12,8 @@ export default class UIManager {
         this.p = p;
         this.visualizations = {
             0: new ColorChangeVisualization(p, dataManager),
-            1: new CircleVisualization(p, dataManager)
-           // 2: new ColorWaveVisualization(p, dataManager)
+            1: new CircleVisualization(p, dataManager),
+            2: new ColorWaveVisualization(p, dataManager)
         };
         this.currentVisualization = this.visualizations[0];
         this.visualizationMode = 0;
