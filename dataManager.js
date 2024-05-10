@@ -1,10 +1,8 @@
-// dataManager.js
-
 export default class DataManager {
     constructor() {
         this.devices = {};
-        this.colorCount = {red: 0, green: 0, blue: 0};
-        this.colorWeights = {red: [], green: [], blue: []};
+        this.colorCount = { red: 0, green: 0, blue: 0 };
+        this.colorWeights = {};
         this.disconnectTimeout = 6000;
     }
 
@@ -25,74 +23,67 @@ export default class DataManager {
         return weight;
     }
 
-    calculateAverageWeight(color) {
-        let weights = this.colorWeights[color];
-        if (weights.length === 0) return 0;
-        let sum = weights.reduce((acc, val) => acc + val, 0);
-        return sum / weights.length;
-    }
+    recalculateColorCounts() {
+        let newCounts = { red: 0, green: 0, blue: 0 };
+        Object.values(this.colorWeights).forEach(entry => {
+            newCounts[entry.color] += entry.weight;
+        });
 
-    updateColorCount(color, weight, isAdding = true) {
-        if (isAdding) {
-            this.colorWeights[color].push(weight);
-        } else {
-            let index = this.colorWeights[color].indexOf(weight);
-            if (index > -1) {
-                this.colorWeights[color].splice(index, 1);
-            }
-        }
-        let averageWeight = this.calculateAverageWeight(color);
-        this.colorCount[color] = averageWeight;
+        Object.keys(this.colorCount).forEach(color => {
+            this.colorCount[color] = newCounts[color] / Object.values(this.colorWeights).filter(e => e.color === color).length || 0;
+        });
 
         console.log(`Updated color counts: Red - ${this.colorCount.red.toFixed(2)}, Green - ${this.colorCount.green.toFixed(2)}, Blue - ${this.colorCount.blue.toFixed(2)}`);
+    }
+
+    updateColorCount(deviceId, color, weight, isAdding = true) {
+        if (isAdding) {
+            this.colorWeights[deviceId] = { color, weight };
+        } else {
+            delete this.colorWeights[deviceId];
+        }
+        this.recalculateColorCounts();
     }
 
     manageDevice(message) {
         console.log("Managing device:", message);
         let deviceId = message.from;
         let newColorValue = this.getColorFromValue(message.colorValue);
-        let betaValue = message.beta;
-        let alphaValue = message.alpha; 
-        let gammaValue = message.gamma;
-        let newWeight = this.calculateWeight(betaValue);
+        let newWeight = this.calculateWeight(message.beta);
 
         if (!this.devices[deviceId]) {
             console.log(`Adding new device: ${deviceId}`);
             this.devices[deviceId] = {
+                ...message,
                 color: newColorValue,
-                beta: betaValue,
-                alpha: alphaValue, 
-                gamma: gammaValue, 
-                timer: setTimeout(() => this.removeDevice(deviceId), this.disconnectTimeout)
+                weight: newWeight,
+                timer: setTimeout(() => this.removeDevice(deviceId), this.disconnectTimeout),
             };
-            this.updateColorCount(newColorValue, newWeight);
+            this.updateColorCount(deviceId, newColorValue, newWeight, true);
         } else {
             clearTimeout(this.devices[deviceId].timer);
             this.devices[deviceId].timer = setTimeout(() => this.removeDevice(deviceId), this.disconnectTimeout);
+            let currentColor = this.devices[deviceId].color;
+            let currentWeight = this.devices[deviceId].weight;
 
-            let currentColorValue = this.devices[deviceId].color;
-            let currentWeight = this.calculateWeight(this.devices[deviceId].beta);
+            // Update device info
+            this.devices[deviceId] = {...this.devices[deviceId], ...message, weight: newWeight};
 
-            if (currentColorValue !== newColorValue) {
-                console.log(`Device ${deviceId} changed color vote from ${currentColorValue} to ${newColorValue}`);
-                this.updateColorCount(currentColorValue, currentWeight, false);
-                this.updateColorCount(newColorValue, newWeight);
-            } else if (this.devices[deviceId].beta !== betaValue) {
-                this.updateColorCount(currentColorValue, currentWeight, false);
-                this.updateColorCount(currentColorValue, newWeight);
+            if (currentColor !== newColorValue) {
+                this.updateColorCount(deviceId, currentColor, currentWeight, false);
+                this.updateColorCount(deviceId, newColorValue, newWeight, true);
+            } else if (currentWeight !== newWeight) {
+                this.updateColorCount(deviceId, currentColor, currentWeight, false);
+                this.updateColorCount(deviceId, newColorValue, newWeight, true);
             }
-
-            this.devices[deviceId].color = newColorValue;
-            this.devices[deviceId].beta = betaValue;
         }
     }
 
     removeDevice(deviceId) {
         if (this.devices[deviceId]) {
             console.log(`Removing inactive device: ${deviceId}`);
-            let { color, beta } = this.devices[deviceId];
-            let weight = this.calculateWeight(beta);
-            this.updateColorCount(color, weight, false);
+            let { color, weight } = this.devices[deviceId];
+            this.updateColorCount(deviceId, color, weight, false);
             delete this.devices[deviceId];
             console.log(`Device ${deviceId} removed. Current device count: ${Object.keys(this.devices).length}`);
         }

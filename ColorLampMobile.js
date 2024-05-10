@@ -100,6 +100,6 @@ function touchStarted() {
   cirkelknaptrykket(); // Initiates interaction based on touch
   // If needed, you could set up the interval here if it's not already running
   if (!updateInterval) {
-    updateInterval = setInterval(sendCurrentStatus, 500);  // Send update every second
+    updateInterval = setInterval(sendCurrentStatus, 200);  // Send update every second
   }
 }
