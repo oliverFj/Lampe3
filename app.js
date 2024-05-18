@@ -11,7 +11,7 @@ const mqttHandler = new MQTTHandler(dataManager, "ColorLamp");
 new p5((p) => {
     p.setup = function () {
         console.log("Setup started.");
-        p.createCanvas(500, 500).parent('myCanvasContainer'); // Attach the canvas directly here
+        p.createCanvas(800, 500).parent('myCanvasContainer'); // Attach the canvas directly here
         uiManager = new UIManager(dataManager, p); // Pass the p5 instance to UIManager
         uiManager.setupCanvas(); // Set up other properties
     };

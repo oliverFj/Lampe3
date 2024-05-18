@@ -1,68 +1,11 @@
-// uiManager.js
-export default class UIManager {
-    constructor(dataManager, p) {
-        this.dataManager = dataManager;
-        this.p = p; // Store the p5 instance
-        this.visualizationMode = 0; // Default to color change visualization
-    }
+How does colorWaveVisualization.js get the gyroscope data from dataManager? I want to create more visualizations, so can this be more generally accecible? 
 
-    setupCanvas() {
-        this.p.background(0);
-    }
-
-    draw() {
-        if (this.visualizationMode === 0) {
-            this.drawColorChange();
-        } else if (this.visualizationMode === 1) {
-            this.drawCircleVisualization();
-        }
-    }
-
-    drawColorChange() {
-        // Make sure to call p5 functions on the p instance
-        this.p.background(this.p.map(this.dataManager.colorCount.red, 0, 1, 0, 255),
-                          this.p.map(this.dataManager.colorCount.green, 0, 1, 0, 255),
-                          this.p.map(this.dataManager.colorCount.blue, 0, 1, 0, 255));
-        this.p.fill(255);
-        this.p.textSize(16);
-        this.p.text(`Total connected devices: ${Object.keys(this.dataManager.devices).length}`, 20, 30);
-        this.p.text(`Red votes: ${this.dataManager.colorCount.red.toFixed(2)}`, 20, 50);
-        this.p.text(`Green votes: ${this.dataManager.colorCount.green.toFixed(2)}`, 20, 70);
-        this.p.text(`Blue votes: ${this.dataManager.colorCount.blue.toFixed(2)}`, 20, 90);
-    }
-
-    drawCircleVisualization() {
-        this.p.background(0);
-        this.p.fill(255);
-        this.p.noStroke();
-
-        let totalBeta = 0;
-        let deviceCount = 0;
-        Object.values(this.dataManager.devices).forEach(device => {
-            if (device.beta !== undefined) {
-                totalBeta += this.dataManager.calculateWeight(device.beta);
-                deviceCount++;
-            }
-        });
-
-        let averageBeta = deviceCount > 0 ? totalBeta / deviceCount : 0;
-        let circleSize = this.p.map(averageBeta, 0, 1, 50, 450);
-        this.p.ellipse(this.p.width / 2, this.p.height / 2, circleSize, circleSize);
-    }
-
-    toggleVisualization() {
-        this.visualizationMode = (this.visualizationMode + 1) % 2;
-    }
-}
-
-
-// dataManager.js
-
+//dataManager.js
 export default class DataManager {
     constructor() {
         this.devices = {};
-        this.colorCount = {red: 0, green: 0, blue: 0};
-        this.colorWeights = {red: [], green: [], blue: []};
+        this.colorCount = { red: 0, green: 0, blue: 0 };
+        this.colorWeights = {};
         this.disconnectTimeout = 6000;
     }
 
@@ -83,76 +26,159 @@ export default class DataManager {
         return weight;
     }
 
-    calculateAverageWeight(color) {
-        let weights = this.colorWeights[color];
-        if (weights.length === 0) return 0;
-        let sum = weights.reduce((acc, val) => acc + val, 0);
-        return sum / weights.length;
-    }
+    recalculateColorCounts() {
+        let newCounts = { red: 0, green: 0, blue: 0 };
+        Object.values(this.colorWeights).forEach(entry => {
+            newCounts[entry.color] += entry.weight;
+        });
 
-    updateColorCount(color, weight, isAdding = true) {
-        if (isAdding) {
-            this.colorWeights[color].push(weight);
-        } else {
-            let index = this.colorWeights[color].indexOf(weight);
-            if (index > -1) {
-                this.colorWeights[color].splice(index, 1);
-            }
-        }
-        let averageWeight = this.calculateAverageWeight(color);
-        this.colorCount[color] = averageWeight;
+        Object.keys(this.colorCount).forEach(color => {
+            this.colorCount[color] = newCounts[color] / Object.values(this.colorWeights).filter(e => e.color === color).length || 0;
+        });
 
         console.log(`Updated color counts: Red - ${this.colorCount.red.toFixed(2)}, Green - ${this.colorCount.green.toFixed(2)}, Blue - ${this.colorCount.blue.toFixed(2)}`);
+    }
+
+    updateColorCount(deviceId, color, weight, isAdding = true) {
+        if (isAdding) {
+            this.colorWeights[deviceId] = { color, weight };
+        } else {
+            delete this.colorWeights[deviceId];
+        }
+        this.recalculateColorCounts();
     }
 
     manageDevice(message) {
         console.log("Managing device:", message);
         let deviceId = message.from;
         let newColorValue = this.getColorFromValue(message.colorValue);
-        let betaValue = message.beta;
-        let alphaValue = message.alpha; 
-        let gammaValue = message.gamma;
-        let newWeight = this.calculateWeight(betaValue);
+        let newWeight = this.calculateWeight(message.beta);
 
         if (!this.devices[deviceId]) {
             console.log(`Adding new device: ${deviceId}`);
             this.devices[deviceId] = {
+                ...message,
                 color: newColorValue,
-                beta: betaValue,
-                alpha: alphaValue, 
-                gamma: gammaValue, 
-                timer: setTimeout(() => this.removeDevice(deviceId), this.disconnectTimeout)
+                weight: newWeight,
+                timer: setTimeout(() => this.removeDevice(deviceId), this.disconnectTimeout),
             };
-            this.updateColorCount(newColorValue, newWeight);
+            this.updateColorCount(deviceId, newColorValue, newWeight, true);
         } else {
             clearTimeout(this.devices[deviceId].timer);
             this.devices[deviceId].timer = setTimeout(() => this.removeDevice(deviceId), this.disconnectTimeout);
+            let currentColor = this.devices[deviceId].color;
+            let currentWeight = this.devices[deviceId].weight;
 
-            let currentColorValue = this.devices[deviceId].color;
-            let currentWeight = this.calculateWeight(this.devices[deviceId].beta);
+            // Update device info
+            this.devices[deviceId] = {...this.devices[deviceId], ...message, weight: newWeight};
 
-            if (currentColorValue !== newColorValue) {
-                console.log(`Device ${deviceId} changed color vote from ${currentColorValue} to ${newColorValue}`);
-                this.updateColorCount(currentColorValue, currentWeight, false);
-                this.updateColorCount(newColorValue, newWeight);
-            } else if (this.devices[deviceId].beta !== betaValue) {
-                this.updateColorCount(currentColorValue, currentWeight, false);
-                this.updateColorCount(currentColorValue, newWeight);
+            if (currentColor !== newColorValue) {
+                this.updateColorCount(deviceId, currentColor, currentWeight, false);
+                this.updateColorCount(deviceId, newColorValue, newWeight, true);
+            } else if (currentWeight !== newWeight) {
+                this.updateColorCount(deviceId, currentColor, currentWeight, false);
+                this.updateColorCount(deviceId, newColorValue, newWeight, true);
             }
-
-            this.devices[deviceId].color = newColorValue;
-            this.devices[deviceId].beta = betaValue;
         }
     }
 
     removeDevice(deviceId) {
         if (this.devices[deviceId]) {
             console.log(`Removing inactive device: ${deviceId}`);
-            let { color, beta } = this.devices[deviceId];
-            let weight = this.calculateWeight(beta);
-            this.updateColorCount(color, weight, false);
+            let { color, weight } = this.devices[deviceId];
+            this.updateColorCount(deviceId, color, weight, false);
             delete this.devices[deviceId];
             console.log(`Device ${deviceId} removed. Current device count: ${Object.keys(this.devices).length}`);
         }
     }
 }
+
+
+//colorWaveVisualization.js
+import Visualization from './visualization.js';
+
+export default class ColorWaveVisualization extends Visualization {
+    constructor(p, dataManager) {
+        super(p, dataManager);
+        this.waves = [];
+        this.lastColor = {};
+    }
+
+    draw() {
+        this.p.clear();
+        this.processGyroscopeData();
+        this.updateWaves();
+        this.displayWaves();
+        this.displayText();
+    }
+
+processGyroscopeData() {
+    if (this.dataManager.devices) {
+        Object.values(this.dataManager.devices).forEach(device => {
+            const betaMapped = this.p.map(device.beta, -90, 90, 0, this.p.width);
+            const gammaMapped = this.p.map(device.gamma, -90, 90, 0, this.p.height);
+            const alphaMapped = this.p.map(device.alpha, 0, 360, 10, 100);
+            const deviceColor = this.getColorForDevice(device.color);
+
+            // Always create a new wave with the latest data from the device
+            this.waves.push(new Wave(this.p, betaMapped, gammaMapped, deviceColor, alphaMapped));
+        });
+    }
+}
+
+    getColorForDevice(colorName) {
+        switch(colorName) {
+            case 'red':
+                return this.p.color(255, 0, 0);
+            case 'green':
+                return this.p.color(0, 255, 0);
+            case 'blue':
+                return this.p.color(0, 0, 255);
+            default:
+                return this.p.color(200); // Default to gray if unknown
+        }
+    }
+
+    updateWaves() {
+        this.waves.forEach(wave => wave.update());
+        this.waves = this.waves.filter(wave => wave.isActive());
+    }
+
+    displayWaves() {
+        this.waves.forEach(wave => {
+            this.p.fill(wave.color);
+            this.p.circle(wave.x, wave.y, wave.size);
+            wave.color.setAlpha(255 - this.p.map(wave.size, 0, this.p.width / 2, 0, 255)); // Fading effect
+        });
+    }
+
+    displayText() {
+        this.p.fill(255);
+        this.p.textSize(16);
+        this.p.text(`Active waves: ${this.waves.length}`, 20, 30);
+    }
+}
+
+class Wave {
+    constructor(p, x, y, color, size) {
+        this.p = p;
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.color = color;
+        this.growthRate = this.p.random(1, 5);
+    }
+
+    isActive() {
+        return this.size < this.p.width / 2;
+    }
+
+    update() {
+        this.size += this.growthRate;
+    }
+
+    updateColor(newColor) {
+        this.color = newColor;
+    }
+}
+

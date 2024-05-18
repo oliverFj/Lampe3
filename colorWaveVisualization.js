@@ -1,4 +1,6 @@
+//colorWaveVisualization.js
 import Visualization from './visualization.js';
+import Gyroscope from './gyroscope.js';
 
 export default class ColorWaveVisualization extends Visualization {
     constructor(p, dataManager) {
@@ -16,20 +18,15 @@ export default class ColorWaveVisualization extends Visualization {
     }
 
     processGyroscopeData() {
-        if (this.dataManager.devices) {
-            Object.values(this.dataManager.devices).forEach(device => {
-                const betaMapped = this.p.map(device.beta, -90, 90, 0, this.p.width);
-                const gammaMapped = this.p.map(device.gamma, -90, 90, 0, this.p.height);
-                const alphaMapped = this.p.map(device.alpha, 0, 360, 10, 100);
-                const deviceColor = this.getColorForDevice(device.color);
-
-                // Check if color has changed or if a new wave needs to be added
-                if (this.lastColor[device.deviceId] !== device.color) {
-                    this.lastColor[device.deviceId] = device.color;
-                    this.waves.push(new Wave(this.p, betaMapped, gammaMapped, deviceColor, alphaMapped));
-                }
-            });
-        }
+        const deviceData = this.dataManager.getDeviceData();
+        deviceData.forEach(device => {
+            const betaMapped = this.p.map(Gyroscope.normalizeData('beta', device.beta), 0, 1, this.p.height, 0);
+            const gammaMapped = this.p.map(Gyroscope.normalizeData('gamma', device.gamma), 0, 1, 0, this.p.width);
+            const alphaMapped = this.p.map(Gyroscope.normalizeData('alpha', device.alpha), 0, 1, 10, 100);
+            const deviceColor = this.getColorForDevice(device.color);
+    
+            this.waves.push(new Wave(this.p, gammaMapped, betaMapped, deviceColor, alphaMapped));
+        });
     }
 
     getColorForDevice(colorName) {
@@ -54,7 +51,7 @@ export default class ColorWaveVisualization extends Visualization {
         this.waves.forEach(wave => {
             this.p.fill(wave.color);
             this.p.circle(wave.x, wave.y, wave.size);
-            wave.color.setAlpha(255 - this.p.map(wave.size, 0, this.p.width / 2, 0, 255)); // Fading effect
+            wave.color.setAlpha(255 - this.p.map(wave.size, 0, this.p.width / 2, 0, 255) * 2); // Faster fading effect
         });
     }
 
@@ -81,5 +78,9 @@ class Wave {
 
     update() {
         this.size += this.growthRate;
+    }
+
+    updateColor(newColor) {
+        this.color = newColor;
     }
 }

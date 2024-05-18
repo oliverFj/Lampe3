@@ -1,9 +1,22 @@
+// dataManager.js
+import Gyroscope from './gyroscope.js';
+
 export default class DataManager {
     constructor() {
         this.devices = {};
         this.colorCount = { red: 0, green: 0, blue: 0 };
         this.colorWeights = {};
         this.disconnectTimeout = 6000;
+    }
+
+    getDeviceData() {
+        return Object.values(this.devices).map(device => ({
+            id: device.from,
+            beta: device.beta,
+            gamma: device.gamma,
+            alpha: device.alpha,
+            color: this.getColorFromValue(device.colorValue)
+        }));
     }
 
     getColorFromValue(value) {
@@ -15,12 +28,13 @@ export default class DataManager {
         }
     }
 
-    calculateWeight(beta) {
-        let cappedBeta = Math.min(Math.max(beta, -90), 90);
-        let normalizedBeta = (cappedBeta + 90) / 180;
-        let weight = normalizedBeta;
-        console.log(`Calculated weight for beta ${beta}: ${weight}`);
-        return weight;
+    updateColorCount(deviceId, color, weight, isAdding = true) {
+        if (isAdding) {
+            this.colorWeights[deviceId] = { color, weight };
+        } else {
+            delete this.colorWeights[deviceId];
+        }
+        this.recalculateColorCounts();
     }
 
     recalculateColorCounts() {
@@ -36,20 +50,11 @@ export default class DataManager {
         console.log(`Updated color counts: Red - ${this.colorCount.red.toFixed(2)}, Green - ${this.colorCount.green.toFixed(2)}, Blue - ${this.colorCount.blue.toFixed(2)}`);
     }
 
-    updateColorCount(deviceId, color, weight, isAdding = true) {
-        if (isAdding) {
-            this.colorWeights[deviceId] = { color, weight };
-        } else {
-            delete this.colorWeights[deviceId];
-        }
-        this.recalculateColorCounts();
-    }
-
     manageDevice(message) {
         console.log("Managing device:", message);
         let deviceId = message.from;
         let newColorValue = this.getColorFromValue(message.colorValue);
-        let newWeight = this.calculateWeight(message.beta);
+        let newWeight = Gyroscope.calculateWeight(message.beta);
 
         if (!this.devices[deviceId]) {
             console.log(`Adding new device: ${deviceId}`);

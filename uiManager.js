@@ -1,8 +1,12 @@
 // uiManager.js
-
 import ColorChangeVisualization from './colorChangeVisualization.js';
 import CircleVisualization from './circleVisualization.js';
 import ColorWaveVisualization from './colorWaveVisualization.js';
+import ThreeCircles from './threeCircles.js';
+import ColorParticleSystemVisualization from './ColorParticleSystemVisualization.js';
+import KaleidoscopeVisualization from './KaleidoscopeVisualization.js';
+import InteractiveColorHarmony from './InteractiveColorHarmony.js';
+//import GyroscopeVectorField from './gyroscopeVecorField.js';  // Correct the filename if necessary
 
 
 export default class UIManager {
@@ -13,7 +17,12 @@ export default class UIManager {
         this.visualizations = {
             0: new ColorChangeVisualization(p, dataManager),
             1: new CircleVisualization(p, dataManager),
-            2: new ColorWaveVisualization(p, dataManager)
+            2: new ColorWaveVisualization(p, dataManager),
+            3: new ThreeCircles(p, dataManager),
+            4: new ColorParticleSystemVisualization(p, dataManager),
+            5: new KaleidoscopeVisualization(p, dataManager),
+            6: new InteractiveColorHarmony(p, dataManager)
+            
         };
         this.currentVisualization = this.visualizations[0];
         this.visualizationMode = 0;

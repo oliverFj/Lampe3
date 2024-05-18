@@ -1,5 +1,6 @@
 // circleVisualization.js
 import Visualization from './visualization.js';
+import Gyroscope from './gyroscope.js';
 
 export default class CircleVisualization extends Visualization {
     draw() {
@@ -12,7 +13,7 @@ export default class CircleVisualization extends Visualization {
         let deviceCount = 0;
         Object.values(this.dataManager.devices).forEach(device => {
             if (device.beta !== undefined) {
-                totalBeta += this.dataManager.calculateWeight(device.beta);
+                totalBeta += Gyroscope.calculateWeight(device.beta);
                 deviceCount++;
             }
         });

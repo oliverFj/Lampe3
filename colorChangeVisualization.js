@@ -11,6 +11,7 @@ export default class ColorChangeVisualization extends Visualization {
         );
 
         // Example of additional drawing: displaying text for sensor data
+        this.p.noStroke();
         this.p.fill(255); // White text
         this.p.textSize(16);
         this.p.text(`Total connected devices: ${Object.keys(this.dataManager.devices).length}`, 20, 30);
