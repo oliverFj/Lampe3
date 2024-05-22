@@ -1,5 +1,5 @@
-import Visualization from './visualization.js';
-import Gyroscope from './gyroscope.js';
+import Visualization from '../visualization.js';
+import Gyroscope from '../gyroscope.js';
 
 export default class ColorParticleSystemVisualization extends Visualization {
     constructor(p, dataManager) {

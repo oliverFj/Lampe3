@@ -1,6 +1,6 @@
 // circleVisualization.js
-import Visualization from './visualization.js';
-import Gyroscope from './gyroscope.js';
+import Visualization from '../visualization.js';
+import Gyroscope from '../gyroscope.js';
 
 export default class CircleVisualization extends Visualization {
     draw() {

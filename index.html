@@ -11,18 +11,15 @@
   <script type="module" src="libraries/itu_mqtt.js"></script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
-  <script type="module">
-      import './dataManager.js';
-      import './uiManager.js';
-      import './mqttHandler.js';
-      import './app.js';
-  </script>
+  <script type="module"> import './app.js'; </script>
 </head>
 <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
   <div id="myCanvasContainer" class="bg-white p-4 shadow-lg">
     <!-- Canvas is created by the p5.js script -->
   </div>
-  <!-- Adjust the size with Tailwind's width and height classes, e.g., w-64 h-64 for width and height of 16rem -->
+  <div id="buttonContainer" class="mt-4">
+    <!-- Buttons will be added here -->
+  </div>
   <img src="QR.png" alt="QR Code" class="mt-4 shadow-lg w-36 h-36">
 </body>
 </html>

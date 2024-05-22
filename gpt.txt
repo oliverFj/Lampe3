@@ -1,101 +1,96 @@
-How does colorWaveVisualization.js get the gyroscope data from dataManager? I want to create more visualizations, so can this be more generally accecible? 
+I need you to create a visualization in this style. It recieves gyroscope data from a mobile phone device and draws
+a p5.js sketch using the data and a selected color. I want to create an interesting artwork using math. Can you make
+me a visualization that will draw semitransparent lines based on the gyroscope, and a stabilization techique that 
+will translate it into an epicycloid?
 
-//dataManager.js
-export default class DataManager {
-    constructor() {
-        this.devices = {};
-        this.colorCount = { red: 0, green: 0, blue: 0 };
-        this.colorWeights = {};
-        this.disconnectTimeout = 6000;
+// threeCircles.js
+import Visualization from '../visualization.js';
+import Gyroscope from '../gyroscope.js';
+
+export default class ThreeCircles extends Visualization {
+    constructor(p, dataManager) {
+        super(p, dataManager);
+        // Initialize previous sizes to some starting values
+        this.prevRedSize = 50;
+        this.prevGreenSize = 50;
+        this.prevBlueSize = 50;
+
+        // Initialize white circle sizes
+        this.whiteRedSize = 60;
+        this.whiteGreenSize = 60;
+        this.whiteBlueSize = 60;
+
+        // Initialize background color to a darker color
+        this.bgColor = [30, 30, 30]; // Dark gray background
     }
 
-    getColorFromValue(value) {
-        switch (value) {
-            case 1: return 'red';
-            case 2: return 'green';
-            case 3: return 'blue';
-            default: return 'unknown';
+    setup() {
+        this.p.createCanvas(800, 600);
+        this.p.frameRate(60); // Ensure the frame rate is sufficient for smooth transitions
+    }
+
+    draw() {
+        // Set the background color
+        this.p.background(this.bgColor);
+
+        this.p.noStroke();
+
+        // Calculate target sizes based on data
+        const targetRedSize = this.p.map(this.dataManager.colorCount.red, 0, 1, 50, 250);
+        const targetGreenSize = this.p.map(this.dataManager.colorCount.green, 0, 1, 50, 250);
+        const targetBlueSize = this.p.map(this.dataManager.colorCount.blue, 0, 1, 50, 250);
+
+        // Interpolate from previous sizes to target sizes
+        const redSize = this.p.lerp(this.prevRedSize, targetRedSize, 0.1);
+        const greenSize = this.p.lerp(this.prevGreenSize, targetGreenSize, 0.1);
+        const blueSize = this.p.lerp(this.prevBlueSize, targetBlueSize, 0.1);
+
+        // Update previous sizes for the next draw call
+        this.prevRedSize = redSize;
+        this.prevGreenSize = greenSize;
+        this.prevBlueSize = blueSize;
+
+        // Circle positions
+        const offsetX = 250;
+
+        // Draw colored circles
+        this.p.fill(255, 0, 0);
+        this.p.ellipse(this.p.width / 2 - offsetX, this.p.height / 2, redSize, redSize);
+        this.p.fill(0, 255, 0);
+        this.p.ellipse(this.p.width / 2, this.p.height / 2, greenSize, greenSize);
+        this.p.fill(0, 0, 255);
+        this.p.ellipse(this.p.width / 2 + offsetX, this.p.height / 2, blueSize, blueSize);
+
+        // Draw white circles around the colored circles with stroke and no fill
+        this.p.noFill();
+        this.p.stroke(255);
+        this.p.strokeWeight(5); // Adjust the stroke weight as needed
+        this.p.ellipse(this.p.width / 2 - offsetX, this.p.height / 2, this.whiteRedSize, this.whiteRedSize);
+        this.p.ellipse(this.p.width / 2, this.p.height / 2, this.whiteGreenSize, this.whiteGreenSize);
+        this.p.ellipse(this.p.width / 2 + offsetX, this.p.height / 2, this.whiteBlueSize, this.whiteBlueSize);
+
+        // Check if any colored circle matches the size of its white circle
+        if (Math.abs(redSize - this.whiteRedSize) < 1) {
+            this.changeBackgroundColor(155, 0, 0); // Darker red background
+        } else if (Math.abs(greenSize - this.whiteGreenSize) < 1) {
+            this.changeBackgroundColor(0, 155, 0); // Darker green background
+        } else if (Math.abs(blueSize - this.whiteBlueSize) < 1) {
+            this.changeBackgroundColor(0, 0, 155); // Darker blue background
         }
     }
 
-    calculateWeight(beta) {
-        let cappedBeta = Math.min(Math.max(beta, -90), 90);
-        let normalizedBeta = (cappedBeta + 90) / 180;
-        let weight = normalizedBeta;
-        console.log(`Calculated weight for beta ${beta}: ${weight}`);
-        return weight;
-    }
-
-    recalculateColorCounts() {
-        let newCounts = { red: 0, green: 0, blue: 0 };
-        Object.values(this.colorWeights).forEach(entry => {
-            newCounts[entry.color] += entry.weight;
-        });
-
-        Object.keys(this.colorCount).forEach(color => {
-            this.colorCount[color] = newCounts[color] / Object.values(this.colorWeights).filter(e => e.color === color).length || 0;
-        });
-
-        console.log(`Updated color counts: Red - ${this.colorCount.red.toFixed(2)}, Green - ${this.colorCount.green.toFixed(2)}, Blue - ${this.colorCount.blue.toFixed(2)}`);
-    }
-
-    updateColorCount(deviceId, color, weight, isAdding = true) {
-        if (isAdding) {
-            this.colorWeights[deviceId] = { color, weight };
-        } else {
-            delete this.colorWeights[deviceId];
-        }
-        this.recalculateColorCounts();
-    }
-
-    manageDevice(message) {
-        console.log("Managing device:", message);
-        let deviceId = message.from;
-        let newColorValue = this.getColorFromValue(message.colorValue);
-        let newWeight = this.calculateWeight(message.beta);
-
-        if (!this.devices[deviceId]) {
-            console.log(`Adding new device: ${deviceId}`);
-            this.devices[deviceId] = {
-                ...message,
-                color: newColorValue,
-                weight: newWeight,
-                timer: setTimeout(() => this.removeDevice(deviceId), this.disconnectTimeout),
-            };
-            this.updateColorCount(deviceId, newColorValue, newWeight, true);
-        } else {
-            clearTimeout(this.devices[deviceId].timer);
-            this.devices[deviceId].timer = setTimeout(() => this.removeDevice(deviceId), this.disconnectTimeout);
-            let currentColor = this.devices[deviceId].color;
-            let currentWeight = this.devices[deviceId].weight;
-
-            // Update device info
-            this.devices[deviceId] = {...this.devices[deviceId], ...message, weight: newWeight};
-
-            if (currentColor !== newColorValue) {
-                this.updateColorCount(deviceId, currentColor, currentWeight, false);
-                this.updateColorCount(deviceId, newColorValue, newWeight, true);
-            } else if (currentWeight !== newWeight) {
-                this.updateColorCount(deviceId, currentColor, currentWeight, false);
-                this.updateColorCount(deviceId, newColorValue, newWeight, true);
-            }
-        }
-    }
-
-    removeDevice(deviceId) {
-        if (this.devices[deviceId]) {
-            console.log(`Removing inactive device: ${deviceId}`);
-            let { color, weight } = this.devices[deviceId];
-            this.updateColorCount(deviceId, color, weight, false);
-            delete this.devices[deviceId];
-            console.log(`Device ${deviceId} removed. Current device count: ${Object.keys(this.devices).length}`);
-        }
+    changeBackgroundColor(r, g, b) {
+        this.bgColor = [r, g, b];
+        // Generate new sizes for white circles
+        this.whiteRedSize = this.p.random(60, 260);
+        this.whiteGreenSize = this.p.random(60, 260);
+        this.whiteBlueSize = this.p.random(60, 260);
     }
 }
 
-
 //colorWaveVisualization.js
-import Visualization from './visualization.js';
+import Visualization from '../visualization.js';
+import Gyroscope from '../gyroscope.js';
 
 export default class ColorWaveVisualization extends Visualization {
     constructor(p, dataManager) {
@@ -112,19 +107,17 @@ export default class ColorWaveVisualization extends Visualization {
         this.displayText();
     }
 
-processGyroscopeData() {
-    if (this.dataManager.devices) {
-        Object.values(this.dataManager.devices).forEach(device => {
-            const betaMapped = this.p.map(device.beta, -90, 90, 0, this.p.width);
-            const gammaMapped = this.p.map(device.gamma, -90, 90, 0, this.p.height);
-            const alphaMapped = this.p.map(device.alpha, 0, 360, 10, 100);
+    processGyroscopeData() {
+        const deviceData = this.dataManager.getDeviceData();
+        deviceData.forEach(device => {
+            const betaMapped = this.p.map(Gyroscope.normalizeData('beta', device.beta), 0, 1, this.p.height, 0);
+            const gammaMapped = this.p.map(Gyroscope.normalizeData('gamma', device.gamma), 0, 1, 0, this.p.width);
+            const alphaMapped = this.p.map(Gyroscope.normalizeData('alpha', device.alpha), 0, 1, 10, 100);
             const deviceColor = this.getColorForDevice(device.color);
-
-            // Always create a new wave with the latest data from the device
-            this.waves.push(new Wave(this.p, betaMapped, gammaMapped, deviceColor, alphaMapped));
+    
+            this.waves.push(new Wave(this.p, gammaMapped, betaMapped, deviceColor, alphaMapped));
         });
     }
-}
 
     getColorForDevice(colorName) {
         switch(colorName) {
@@ -148,7 +141,7 @@ processGyroscopeData() {
         this.waves.forEach(wave => {
             this.p.fill(wave.color);
             this.p.circle(wave.x, wave.y, wave.size);
-            wave.color.setAlpha(255 - this.p.map(wave.size, 0, this.p.width / 2, 0, 255)); // Fading effect
+            wave.color.setAlpha(255 - this.p.map(wave.size, 0, this.p.width / 2, 0, 255) * 2); // Faster fading effect
         });
     }
 
@@ -182,3 +175,115 @@ class Wave {
     }
 }
 
+
+
+// gyroscope.js
+
+/**
+ * Gyroscope utility class for handling and normalizing gyroscope data.
+ * Provides methods to process, filter, and analyze gyroscope inputs for various applications.
+ */
+export default class Gyroscope {
+    /**
+     * Normalizes gyroscope data based on type.
+     * @param {string} type - The type of gyroscope data ('beta', 'gamma', 'alpha').
+     * @param {number} value - The raw sensor value.
+     * @returns {number} Normalized value between 0 and 1.
+     */
+    static normalizeData(type, value) {
+        switch (type) {
+            case 'beta':
+            case 'gamma':
+                let capped = Math.min(Math.max(value, -90), 90);
+                return (capped + 90) / 180;
+            case 'alpha':
+                return value / 360;
+            default:
+                console.error("Invalid type for normalization");
+                return 0;  // Return 0 for unknown types as a fallback.
+        }
+    }
+
+    /**
+     * Calculates weight based on the normalized beta value.
+     * @param {number} beta - The beta value from gyroscope data.
+     * @returns {number} Weight based on beta, normalized between 0 and 1.
+     */
+    static calculateWeight(beta) {
+        let cappedBeta = Math.min(Math.max(beta, -90), 90);
+        let normalizedBeta = this.normalizeData('beta', beta);
+        console.log(`Calculated weight for beta ${beta}: ${normalizedBeta}`);
+        return normalizedBeta;
+    }
+
+    /**
+     * Calculates vectors for gyroscope data including beta, gamma, and alpha.
+     * @param {number} beta 
+     * @param {number} gamma 
+     * @param {number} alpha 
+     * @returns {object} Object containing normalized vectors for beta, gamma, and alpha.
+     */
+    static calculateVector(beta, gamma, alpha) {
+        const betaNorm = this.normalizeData('beta', beta);
+        const gammaNorm = this.normalizeData('gamma', gamma);
+        const alphaNorm = this.normalizeData('alpha', alpha);
+        return { beta: betaNorm, gamma: gammaNorm, alpha: alphaNorm };
+    }
+
+    /**
+     * Applies dynamic thresholding to determine if a value exceeds a dynamic threshold.
+     * @param {number} value - The value to be tested.
+     * @param {number} threshold - Base threshold for detection.
+     * @param {number} sensitivity - Multiplier to adjust the threshold dynamically.
+     * @returns {boolean} True if value exceeds the dynamically adjusted threshold, otherwise false.
+     */
+    static applyDynamicThresholding(value, threshold, sensitivity) {
+        const dynamicThreshold = threshold * sensitivity;
+        return Math.abs(value) > dynamicThreshold;
+    }
+
+    /**
+     * Filters gyroscope data using a low-pass filter.
+     * @param {number} value - The value to be filtered.
+     * @param {string} filterType - Type of filter to apply ('low-pass' supported).
+     * @param {number} factor - Smoothing factor, lower values mean more smoothing.
+     * @returns {number} Smoothed value.
+     */
+    static filterData(value, filterType = 'low-pass', factor = 0.1) {
+        if (filterType === 'low-pass') {
+            this.prevValue = this.prevValue || value; // Initialize if not already done
+            const filteredValue = this.prevValue * (1 - factor) + value * factor;
+            this.prevValue = filteredValue;
+            return filteredValue;
+        }
+        throw new Error(`Unsupported filter type: ${filterType}`);
+    }
+
+    /**
+     * Detects a specific motion pattern in an array of gyroscope data.
+     * @param {array} dataArray - Array of gyroscope data values.
+     * @param {any} pattern - The pattern to be detected.
+     * @returns {boolean} True if the pattern is detected, otherwise false.
+     */
+    static detectMotionPattern(dataArray, pattern) {
+        // Simple heuristic to match a pattern in gyroscope data
+        // Implementation to be defined based on specific pattern requirements
+        return dataArray.some(data => data === pattern);
+    }
+
+    /**
+     * Corrects orientation data based on a reference orientation to handle device tilts.
+     * @param {object} data - Current orientation data.
+     * @param {object} referenceOrientation - Reference orientation for correction.
+     * @returns {object} Corrected orientation data.
+     */
+    static correctOrientation(data, referenceOrientation) {
+        // Corrects data based on a reference orientation
+        // Placeholder for demonstration; implementation details would depend on specific needs
+        return {
+            beta: data.beta - referenceOrientation.beta,
+            gamma: data.gamma - referenceOrientation.gamma,
+            alpha: data.alpha - referenceOrientation.alpha
+        };
+    }
+}

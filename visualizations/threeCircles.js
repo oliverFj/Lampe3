@@ -1,6 +1,5 @@
 // threeCircles.js
-import Visualization from './visualization.js';
-import Gyroscope from './gyroscope.js';
+import Visualization from '../visualization.js';
 
 export default class ThreeCircles extends Visualization {
     constructor(p, dataManager) {
@@ -30,17 +29,17 @@ export default class ThreeCircles extends Visualization {
 
         this.p.noStroke();
 
-        // Calculate target sizes based on data
+        // Beregn målet for cirkles størrelse ud fra dataen
         const targetRedSize = this.p.map(this.dataManager.colorCount.red, 0, 1, 50, 250);
         const targetGreenSize = this.p.map(this.dataManager.colorCount.green, 0, 1, 50, 250);
         const targetBlueSize = this.p.map(this.dataManager.colorCount.blue, 0, 1, 50, 250);
 
-        // Interpolate from previous sizes to target sizes
+        // Brug lerp til at animere cirkels størrelse fra forrige til målets
         const redSize = this.p.lerp(this.prevRedSize, targetRedSize, 0.1);
         const greenSize = this.p.lerp(this.prevGreenSize, targetGreenSize, 0.1);
         const blueSize = this.p.lerp(this.prevBlueSize, targetBlueSize, 0.1);
 
-        // Update previous sizes for the next draw call
+        // Opdater forrige størrelser
         this.prevRedSize = redSize;
         this.prevGreenSize = greenSize;
         this.prevBlueSize = blueSize;

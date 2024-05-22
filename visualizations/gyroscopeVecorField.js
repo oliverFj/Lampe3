@@ -1,4 +1,4 @@
-import Visualization from './visualization.js';
+import Visualization from '../visualization.js';
 
 export default class GyroscopeVectorField extends Visualization {
     constructor(p, dataManager) {

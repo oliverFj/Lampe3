@@ -1,5 +1,5 @@
 // Import Gyroscope class from your module
-import Gyroscope from './gyroscope.js';
+import Gyroscope from '../gyroscope.js';
 
 let currentTheme;
 

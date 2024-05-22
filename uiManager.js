@@ -1,49 +1,48 @@
 // uiManager.js
-import ColorChangeVisualization from './colorChangeVisualization.js';
-import CircleVisualization from './circleVisualization.js';
-import ColorWaveVisualization from './colorWaveVisualization.js';
-import ThreeCircles from './threeCircles.js';
-import ColorParticleSystemVisualization from './ColorParticleSystemVisualization.js';
-import KaleidoscopeVisualization from './KaleidoscopeVisualization.js';
-import InteractiveColorHarmony from './InteractiveColorHarmony.js';
+import ColorChangeVisualization from './visualizations/colorChangeVisualization.js';
+import CircleVisualization from './visualizations/circleVisualization.js';
+import ColorWaveVisualization from './visualizations/colorWaveVisualization.js';
+import ThreeCircles from './visualizations/threeCircles.js';
+import ColorParticleSystemVisualization from './visualizations/ColorParticleSystemVisualization.js';
+import KaleidoscopeVisualization from './visualizations/KaleidoscopeVisualization.js';
+import InteractiveColorHarmony from './visualizations/InteractiveColorHarmony.js';
+import LinePatternVisualization from './visualizations/VizTest.js';
+import EpicycloidVisualization from './visualizations/epicycloidVisualization.js';
 //import GyroscopeVectorField from './gyroscopeVecorField.js';  // Correct the filename if necessary
-
 
 export default class UIManager {
     constructor(dataManager, p) {
- 
         this.dataManager = dataManager;
         this.p = p;
         this.visualizations = {
             0: new ColorChangeVisualization(p, dataManager),
-            1: new CircleVisualization(p, dataManager),
-            2: new ColorWaveVisualization(p, dataManager),
-            3: new ThreeCircles(p, dataManager),
-            4: new ColorParticleSystemVisualization(p, dataManager),
-            5: new KaleidoscopeVisualization(p, dataManager),
-            6: new InteractiveColorHarmony(p, dataManager)
-            
+            1: new ColorWaveVisualization(p, dataManager),
+            2: new ThreeCircles(p, dataManager),
+            3: new LinePatternVisualization(p, dataManager),
+            4: new EpicycloidVisualization(p, dataManager)
         };
         this.currentVisualization = this.visualizations[0];
         this.visualizationMode = 0;
     }
 
     draw() {
-
         this.currentVisualization.draw();
     }
 
-    toggleVisualization() {
-        let nextVisualization = (this.visualizationMode + 1) % Object.keys(this.visualizations).length;
+    nextVisualization() {
+        this.visualizationMode = (this.visualizationMode + 1) % Object.keys(this.visualizations).length;
+        this.currentVisualization = this.visualizations[this.visualizationMode];
+    }
 
-        this.visualizationMode = nextVisualization;
-        this.currentVisualization = this.visualizations[nextVisualization];
+    prevVisualization() {
+        this.visualizationMode = (this.visualizationMode - 1 + Object.keys(this.visualizations).length) % Object.keys(this.visualizations).length;
+        this.currentVisualization = this.visualizations[this.visualizationMode];
     }
 
     setupCanvas() {
         console.log("Setting up canvas");
         this.p.background(0);
     }
-
 }
+
 
